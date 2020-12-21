@@ -1,104 +1,105 @@
-function buildMetadata(sample) {
-    d3.json("samples.json").then((data) => {
-      var metadata= data.metadata;
-      var resultsarray= metadata.filter(sampleobject => sampleobject.id == sample);
-      var result= resultsarray[0]
-      var PANEL = d3.select("#sample-metadata");
-      PANEL.html("");
-      Object.entries(result).forEach(([key, value]) => {
-        PANEL.append("h6").text(`${key}: ${value}`);
+// Belly Button Biodiversity by Elvis Selimaj, GWU BootCamp 
+
+// Function to pull names from json file and add them in the filter
+
+
+var drawChart = function(x_data, y_data, hoverText, metadata) {
+
+
+  var metadata_panel = d3.select("#sample-metadata");
+  metadata_panel.html("");
+  Object.entries(metadata).forEach(([key, value]) => {
+      metadata_panel.append("p").text(`${key}: ${value}`);
+  });
+
+  var trace = {
+      x: x_data,
+      y: y_data,
+      text: hoverText,
+      type: 'bar',
+      orientation: 'h'
+  };
+
+  var data = [trace];
+
+  Plotly.newPlot('bar', data);
+
+  var trace2 = {
+      x: x_data,
+      y: y_data,
+      text: hoverText,
+      mode: 'markers',
+      marker: {
+          size: y_data,
+          color: x_data
+      }
+  };
+
+  var data2 = [trace2];
+
+  Plotly.newPlot('bubble', data2);
+
+
+};
+
+var populateDropdown = function(names) {
+
+  var selectTag = d3.select("#selDataset");
+  var options = selectTag.selectAll('option').data(names);
+
+  options.enter()
+      .append('option')
+      .attr('value', function(d) {
+          return d;
+      })
+      .text(function(d) {
+          return d;
       });
 
-      // BONUS: Build the Gauge Chart
-    
-    });
-  }
+};
 
+var optionChanged = function(newValue) {
 
-function buildCharts(sample) {
+  d3.json("data/samples.json").then(function(data) {
 
-  // Use `d3.json` to fetch the sample data for the plots
-  d3.json("samples.json").then((data) => {
-    var samples= data.samples;
-    var resultsarray= samples.filter(sampleobject => sampleobject.id == sample);
-    var result= resultsarray[0]
+  sample_new = data["samples"].filter(function(sample) {
 
-    var ids = result.otu_ids;
-    var labels = result.otu_labels;
-    var values = result.sample_values;
+      return sample.id == newValue;
 
-
-    // Build a Bubble Chart using the sample data
-    var LayoutBubble = {
-      margin: { t: 0 },
-      xaxis: { title: "Id's" },
-      hovermode: "closest",
-      };
-
-      var DataBubble = [
-      {
-        x: ids,
-        y: values,
-        text: labels,
-        mode: "markers",
-        marker: {
-          color: ids,
-          size: values,
-          }
-      }
-    ];
-
-    Plotly.plot("bubble", DataBubble, LayoutBubble);
-
-    //  Build a bar Chart
-    
-    var bar_data =[
-      {
-        y:ids.slice(0, 10).map(otuID => `OTU ${otuID}`).reverse(),
-        x:values.slice(0,10).reverse(),
-        text:labels.slice(0,10).reverse(),
-        type:"bar",
-        orientation:"h"
-
-      }
-    ];
-
-    var barLayout = {
-      title: "Top 10 Bacteria Cultures Found",
-      margin: { t: 30, l: 150 }
-    };
-
-    Plotly.newPlot("bar", bar_data, barLayout);
   });
-}
-   
- 
-function init() {
-  // Grab a reference to the dropdown select element
-  var selector = d3.select("#selDataset");
+  
+  metadata_new = data["metadata"].filter(function(metadata) {
 
-  // Use the list of sample names to populate the select options
-  d3.json("samples.json").then((data) => {
-    var sampleNames = data.names;
-    sampleNames.forEach((sample) => {
-      selector
-        .append("option")
-        .text(sample)
-        .property("value", sample);
-    });
+      return metadata.id == newValue;
 
-    // Use the first sample from the list to build the initial plots
-    const firstSample = sampleNames[0];
-    buildCharts(firstSample);
-    buildMetadata(firstSample);
   });
-}
+  
+  
+  x_data = sample_new[0]["otu_ids"];
+  y_data = sample_new[0]["sample_values"];
+  hoverText = sample_new[0]["otu_labels"];
+  
+  console.log(x_data);
+  console.log(y_data);
+  console.log(hoverText);
+  
+  drawChart(x_data, y_data, hoverText, metadata_new[0]);
+  });
+};
 
-function optionChanged(newSample) {
-  // Fetch new data each time a new sample is selected
-  buildCharts(newSample);
-  buildMetadata(newSample);
-}
+d3.json("data/samples.json").then(function(data) {
 
-// Initialize the dashboard
-init();
+  //Populate dropdown with names
+  populateDropdown(data["names"]);
+
+  //Populate the page with the first value
+  x_data = data["samples"][0]["otu_ids"];
+  y_data = data["samples"][0]["sample_values"];
+  hoverText = data["samples"][0]["otu_labels"];
+  metadata = data["metadata"][0];
+
+  //Draw the chart on load
+  drawChart(x_data, y_data, hoverText, metadata);
+
+
+});
