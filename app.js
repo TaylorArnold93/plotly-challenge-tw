@@ -1,101 +1,102 @@
-import os
+// append ids to the dropdown   
+d3.json('data.json').then((data)=>{
+    var id=data.names;
+    console.log(data.metadata);
+    var select=d3.selectAll('#selDataset');
+    Object.entries(id).forEach(([i,v])=>{
+        select.append('option').text(v);
+    })
+})
+function makePlot(testId){
+    d3.json('data.json').then((data)=>{
+        // This is the array
+        var samples=data.samples;
+        var testNum=samples.map(row=>row.id).indexOf(testId);
+        // Make bar plot
+        var otuValueTen=samples.map(row=>row.sample_values);
+        var otuValueTen=otuValueTen[testNum].slice(0,10).reverse();
+        var otuIdTen=samples.map(row=>row.otu_ids);
+        var otuIdTen=otuIdTen[testNum].slice(0,10);
+        var otuLabelTen=samples.map(row=>row.otu_labels); 
+        var otuLabelTen=otuLabelTen[testNum].slice(0,10); 
+        var trace={
+            x: otuValueTen,
+            y: otuIdTen.map(r=>`UTO ${r}`),
+            text: otuLabelTen,
+            type:'bar',
+            orientation:'h'
+        }
+        Plotly.newPlot('bar',[trace]);
+        // make bubble chart
+        var otuValue=samples.map(row=>row.sample_values);
+        var otuValue=otuValue[testNum];
+        var otuId=samples.map(row=>row.otu_ids);
+        var otuId=otuId[testNum];
+        var otuLabel=samples.map(row=>row.otu_labels); 
+        var otuLabel=otuLabel[testNum];
+        var minIds=d3.min(otuId);
+        var maxIds=d3.max(otuId);
+        var mapNr = d3.scaleLinear().domain([minIds, maxIds]).range([0, 1]);
+        var bubbleColors = otuId.map( val => d3.interpolateRgbBasis(["royalblue", "greenyellow", "goldenrod"])(mapNr(val)));
+        var trace1={
+            x: otuId,
+            y: otuValue,
+            text: otuLabel,
+            mode: 'markers',
+            marker: {
+                color: bubbleColors,
+                size: otuValue.map(x=>x*10),
+                sizemode: 'area'
+            }
+        };
+        var data1=[trace1];
+        var bubbleLayout={
+            xaxis:{
+                autochange: true,
+                height: 600,
+                width: 1000,
+                title: {
+                    text: 'OTU ID'
+                }
+            },
+        };
+        Plotly.newPlot('bubble',data1,bubbleLayout);   
+        // make gauge chart 
+        var meta=data.metadata;
+        var data2 = [
+            {
+                domain: { x: [0, 1], y: [0, 1] },
+                value: meta[testNum].wfreq,
+                title: { text: "Washing frequency" },
+                type: "indicator",
+                mode: "gauge+number",
+                gauge: { axis: { range: [null, 9] },
+                bar:{color: 'orange'},
+                   steps: [
+                    { range: [0, 2], color: "rgba(14, 127, 0, .5)" },
+                    { range: [2, 3], color: "rgba(110, 154, 22, .5)" },
+                    { range: [3, 4], color: "rgba(170, 202, 42, .5)" },
+                    { range: [4, 5], color: "rgba(202, 209, 95, .5)" },
+                    { range: [5, 6], color: "rgba(210, 206, 145, .5)" },
+                    { range: [6, 8], color: "rgba(232, 226, 202, .5)" },
+                    { range: [8, 9], color: "rgba(255, 255, 255, 0)" }
+                  ]}
+            }
+        ];
+        
+        var gaugeLayout = { width: 600, height: 500};
+        Plotly.newPlot('gauge', data2, gaugeLayout);
+        // display meta info
+        var metadata=d3.select('#sample-metadata');
+        metadata.html('');
+        Object.entries(meta[testNum]).forEach(([k,v])=>{
+            metadata.append('p').text(`${k.toUpperCase()}:\n${v}`);
+        })
+    })
+}
 
-import pandas as pd
-import numpy as np
-
-import sqlalchemy
-from sqlalchemy.ext.automap import automap_base
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
-
-from flask import Flask, jsonify, render_template
-from flask_sqlalchemy import SQLAlchemy
-
-app = Flask(__name__)
-
-
-#################################################
-# Database Setup
-#################################################
-
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db/bellybutton.sqlite"
-db = SQLAlchemy(app)
-
-# reflect an existing database into a new model
-Base = automap_base()
-# reflect the tables
-Base.prepare(db.engine, reflect=True)
-
-# Save references to each table
-Samples_Metadata = Base.classes.sample_metadata
-Samples = Base.classes.samples
-
-
-@app.route("/")
-def index():
-    """Return the homepage."""
-    return render_template("index.html")
-
-
-@app.route("/names")
-def names():
-    """Return a list of sample names."""
-
-    # Use Pandas to perform the sql query
-    stmt = db.session.query(Samples).statement
-    df = pd.read_sql_query(stmt, db.session.bind)
-
-    # Return a list of the column names (sample names)
-    return jsonify(list(df.columns)[2:])
-
-
-@app.route("/metadata/<sample>")
-def sample_metadata(sample):
-    """Return the MetaData for a given sample."""
-    sel = [
-        Samples_Metadata.sample,
-        Samples_Metadata.ETHNICITY,
-        Samples_Metadata.GENDER,
-        Samples_Metadata.AGE,
-        Samples_Metadata.LOCATION,
-        Samples_Metadata.BBTYPE,
-        Samples_Metadata.WFREQ,
-    ]
-
-    results = db.session.query(*sel).filter(Samples_Metadata.sample == sample).all()
-
-    # Create a dictionary entry for each row of metadata information
-    sample_metadata = {}
-    for result in results:
-        sample_metadata["sample"] = result[0]
-        sample_metadata["ETHNICITY"] = result[1]
-        sample_metadata["GENDER"] = result[2]
-        sample_metadata["AGE"] = result[3]
-        sample_metadata["LOCATION"] = result[4]
-        sample_metadata["BBTYPE"] = result[5]
-        sample_metadata["WFREQ"] = result[6]
-
-    print(sample_metadata)
-    return jsonify(sample_metadata)
-
-
-@app.route("/samples/<sample>")
-def samples(sample):
-    """Return `otu_ids`, `otu_labels`,and `sample_values`."""
-    stmt = db.session.query(Samples).statement
-    df = pd.read_sql_query(stmt, db.session.bind)
-
-    # Filter the data based on the sample number and
-    # only keep rows with values above 1
-    sample_data = df.loc[df[sample] > 1, ["otu_id", "otu_label", sample]]
-    # Format the data to send as json
-    data = {
-        "otu_ids": sample_data.otu_id.values.tolist(),
-        "sample_values": sample_data[sample].values.tolist(),
-        "otu_labels": sample_data.otu_label.tolist(),
-    }
-    return jsonify(data)
-
-
-if __name__ == "__main__":
-    app.run()
+// Submit Button handler
+function optionChanged(newId) {
+    // Select the input value from the form
+    makePlot(newId);
+}
