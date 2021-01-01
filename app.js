@@ -1,5 +1,5 @@
 // append ids to the dropdown   
-d3.json('data.json').then((data)=>{
+d3.json('samples.json').then((data)=>{
     var id=data.names;
     console.log(data.metadata);
     var select=d3.selectAll('#selDataset');
@@ -8,7 +8,7 @@ d3.json('data.json').then((data)=>{
     })
 })
 function makePlot(testId){
-    d3.json('data.json').then((data)=>{
+    d3.json('samples.json').then((data)=>{
         // This is the array
         var samples=data.samples;
         var testNum=samples.map(row=>row.id).indexOf(testId);
