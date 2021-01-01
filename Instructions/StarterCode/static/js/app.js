@@ -1,90 +1,101 @@
-function buildMetadata(sample) {
+import os
 
-  // @TODO: Complete the following function that builds the metadata panel
+import pandas as pd
+import numpy as np
 
-  // Use `d3.json` to fetch the metadata for a sample
-    d3.json("/metadata/" + sample).then(function(sample){
-  // Use d3 to select the panel with id of `#sample-metadata`
-      var select = d3.select("#sample-metadata");  
-    // Use `.html("") to clear any existing metadata
-      select.html("");
-    // Use `Object.entries` to add each key and value pair to the panel
-    // Hint: Inside the loop, you will need to use d3 to append new
-    // tags for each key-value in the metadata.
-      Object.entries(data).forEach(([key,value]) =>{
-        select
-          .append('p').text(`${key} : ${value}`)
-          .append('hr')
-    });
-  }) 
-  }
+import sqlalchemy
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
 
-function buildCharts(sample) {
+from flask import Flask, jsonify, render_template
+from flask_sqlalchemy import SQLAlchemy
 
-  // @TODO: Use `d3.json` to fetch the sample data for the plots
-d3.json("/samples/${sample}").then(function(data){
+app = Flask(__name__)
 
-  // @TODO: Build a Bubble Chart using the sample data
-  var xval = data.otu_ids;
-  var yval = data.sample_values;
-  var label = data.otu_labels;
-  var size = data.sample_values;
 
-  var bubbles = {
-    x: xval,
-    y: yval,
-    label: label,
-    mode: 'markers',
-    marker: {
-      size: size,
-      color: xval
+#################################################
+# Database Setup
+#################################################
+
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db/bellybutton.sqlite"
+db = SQLAlchemy(app)
+
+# reflect an existing database into a new model
+Base = automap_base()
+# reflect the tables
+Base.prepare(db.engine, reflect=True)
+
+# Save references to each table
+Samples_Metadata = Base.classes.sample_metadata
+Samples = Base.classes.samples
+
+
+@app.route("/")
+def index():
+    """Return the homepage."""
+    return render_template("index.html")
+
+
+@app.route("/names")
+def names():
+    """Return a list of sample names."""
+
+    # Use Pandas to perform the sql query
+    stmt = db.session.query(Samples).statement
+    df = pd.read_sql_query(stmt, db.session.bind)
+
+    # Return a list of the column names (sample names)
+    return jsonify(list(df.columns)[2:])
+
+
+@app.route("/metadata/<sample>")
+def sample_metadata(sample):
+    """Return the MetaData for a given sample."""
+    sel = [
+        Samples_Metadata.sample,
+        Samples_Metadata.ETHNICITY,
+        Samples_Metadata.GENDER,
+        Samples_Metadata.AGE,
+        Samples_Metadata.LOCATION,
+        Samples_Metadata.BBTYPE,
+        Samples_Metadata.WFREQ,
+    ]
+
+    results = db.session.query(*sel).filter(Samples_Metadata.sample == sample).all()
+
+    # Create a dictionary entry for each row of metadata information
+    sample_metadata = {}
+    for result in results:
+        sample_metadata["sample"] = result[0]
+        sample_metadata["ETHNICITY"] = result[1]
+        sample_metadata["GENDER"] = result[2]
+        sample_metadata["AGE"] = result[3]
+        sample_metadata["LOCATION"] = result[4]
+        sample_metadata["BBTYPE"] = result[5]
+        sample_metadata["WFREQ"] = result[6]
+
+    print(sample_metadata)
+    return jsonify(sample_metadata)
+
+
+@app.route("/samples/<sample>")
+def samples(sample):
+    """Return `otu_ids`, `otu_labels`,and `sample_values`."""
+    stmt = db.session.query(Samples).statement
+    df = pd.read_sql_query(stmt, db.session.bind)
+
+    # Filter the data based on the sample number and
+    # only keep rows with values above 1
+    sample_data = df.loc[df[sample] > 1, ["otu_id", "otu_label", sample]]
+    # Format the data to send as json
+    data = {
+        "otu_ids": sample_data.otu_id.values.tolist(),
+        "sample_values": sample_data[sample].values.tolist(),
+        "otu_labels": sample_data.otu_label.tolist(),
     }
-  }
-  var data = [bubbles];
+    return jsonify(data)
 
-  var layout = {
-    title: "Bacteria Size",
-  };
-  Plotly.newPlot("bubble",data,layout);
 
-// @TODO: Build a Pie Chart
-// HINT: You will need to use slice() to grab the top 10 sample_values,
-// otu_ids, and labels (10 each).
-
-  var data = [{
-    values: size.splice(0,10),
-    labels: xval.splice(0,10),
-    text: yval.splice(0,10),
-  }]
-  Plotly.newPlot('pie',data);
-});
-}
-
-function init() {
-  // Grab a reference to the dropdown select element
-  var selector = d3.select("#selDataset");
-
-  // Use the list of sample names to populate the select options
-  d3.json("/names").then((sampleNames) => {
-    sampleNames.forEach((sample) => {
-      selector
-        .append("option")
-        .text(sample)
-        .property("value", sample);
-    });
-
-    // Use the first sample from the list to build the initial plots
-    const firstSample = sampleNames[0];
-    buildCharts(firstSample);
-    buildMetadata(firstSample);
-  });
-}
-
-function optionChanged(newSample) {
-  // Fetch new data each time a new sample is selected
-  buildCharts(newSample);
-  buildMetadata(newSample);
-}
-
-// Initialize the dashboard
-init();
+if __name__ == "__main__":
+    app.run()
