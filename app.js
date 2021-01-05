@@ -1,4 +1,4 @@
-// app. ids to the dropdown   
+// creating the ids to the dropdown   
 d3.json('samples.json').then((data)=>{
     var id=data.names;
     console.log(data.metadata);
@@ -9,10 +9,10 @@ d3.json('samples.json').then((data)=>{
 })
 function makePlot(testId){
     d3.json('samples.json').then((data)=>{
-        //  the array
+        //  creating the the array
         var samples=data.samples;
         var testNum=samples.map(row=>row.id).indexOf(testId);
-        //  bar plot
+        //  creating the bar plot
         var otuValueTen=samples.map(row=>row.sample_values);
         var otuValueTen=otuValueTen[testNum].slice(0,10).reverse();
         var otuIdTen=samples.map(row=>row.otu_ids);
@@ -27,7 +27,7 @@ function makePlot(testId){
             orientation:'h'
         }
         Plotly.newPlot('bar',[trace]);
-        // making bubble chart
+        // making the bubble chart
         var otuValue=samples.map(row=>row.sample_values);
         var otuValue=otuValue[testNum];
         var otuId=samples.map(row=>row.otu_ids);
@@ -94,3 +94,6 @@ function makePlot(testId){
         })
     })
 }
+
+// Initialize the dashboard
+// init();
