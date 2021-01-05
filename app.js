@@ -1,4 +1,4 @@
-// append ids to the dropdown   
+// app. ids to the dropdown   
 d3.json('samples.json').then((data)=>{
     var id=data.names;
     console.log(data.metadata);
@@ -9,10 +9,10 @@ d3.json('samples.json').then((data)=>{
 })
 function makePlot(testId){
     d3.json('samples.json').then((data)=>{
-        // This is the array
+        //  the array
         var samples=data.samples;
         var testNum=samples.map(row=>row.id).indexOf(testId);
-        // Make bar plot
+        //  bar plot
         var otuValueTen=samples.map(row=>row.sample_values);
         var otuValueTen=otuValueTen[testNum].slice(0,10).reverse();
         var otuIdTen=samples.map(row=>row.otu_ids);
@@ -27,7 +27,7 @@ function makePlot(testId){
             orientation:'h'
         }
         Plotly.newPlot('bar',[trace]);
-        // make bubble chart
+        // making bubble chart
         var otuValue=samples.map(row=>row.sample_values);
         var otuValue=otuValue[testNum];
         var otuId=samples.map(row=>row.otu_ids);
@@ -61,7 +61,7 @@ function makePlot(testId){
             },
         };
         Plotly.newPlot('bubble',data1,bubbleLayout);   
-        // make gauge chart 
+        // making the gauge chart 
         var meta=data.metadata;
         var data2 = [
             {
@@ -93,10 +93,4 @@ function makePlot(testId){
             metadata.append('p').text(`${k.toUpperCase()}:\n${v}`);
         })
     })
-}
-
-// Submit Button handler
-function optionChanged(newId) {
-    // Select the input value from the form
-    makePlot(newId);
 }
